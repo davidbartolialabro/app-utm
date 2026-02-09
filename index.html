@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Coordenades GPS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 </head>
 <body>
 
@@ -30,10 +31,18 @@
         const lat = posicio.coords.latitude;
         const lon = posicio.coords.longitude;
 
-        document.getElementById("resultat").innerHTML =
-          "Latitud: " + lat + "<br>" +
-          "Longitud: " + lon;
-      },
+      const utm = proj4(
+  "EPSG:4326",
+  "+proj=utm +zone=31 +datum=WGS84 +units=m +no_defs",
+  [lon, lat]
+);
+
+document.getElementById("resultat").innerHTML =
+  "Latitud: " + lat + "<br>" +
+  "Longitud: " + lon + "<br><br>" +
+  "<strong>UTM</strong><br>" +
+  "X (Est): " + utm[0].toFixed(2) + " m<br>" +
+  "Y (Nord): " + utm[1].toFixed(2) + " m";
       function (error) {
         document.getElementById("resultat").textContent =
           "No s'ha pogut obtenir la posició.";
