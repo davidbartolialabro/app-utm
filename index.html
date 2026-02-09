@@ -3,24 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GPS OK</title>
+  <title>Coordenades UTM</title>
+
+  <!-- Llibreria per convertir a UTM -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 </head>
 <body>
 
-<h1>GPS OK</h1>
-<button onclick="gps()">Obtenir posició</button>
-<p id="r">---</p>
+  <h1>La meva app UTM</h1>
 
-<script>
-function gps(){
-  navigator.geolocation.getCurrentPosition(
-    p => r.innerHTML = 
-      "LAT: " + p.coords.latitude + "<br>" +
-      "LON: " + p.coords.longitude,
-    e => r.innerHTML = "Error GPS: " + e.message
-  );
-}
-</script>
+  <button onclick="obtenirPosicio()">Obtenir posició</button>
+
+  <p id="resultat">Encara no hi ha dades.</p>
+
+  <script>
+    function obtenirPosicio() {
+
+      if (!navigator.geolocation) {
+        document.getElementById("resultat").textContent =
+          "El teu dispositiu no suporta GPS.";
+        return;
+      }
+
+      document.getElementById("resultat").textContent =
+        "Obtenint posició...";
+
+      navigator.geolocation.getCurrentPosition(
+        function (posicio) {
+          const lat = posicio.coords.latitude;
+          const lon = posicio.coords.longitude;
+
+          // Zona UTM (31 per Catalunya)
+          const utm = proj4(
+            "EPSG:4326",
+            "+proj=utm +zone=31 +datum=WGS84 +units=m +no_defs",
+            [lon, lat]
+          );
+
+          document.getElementById("resultat").innerHTML =
+            "Latitud: " + lat + "<br>" +
+            "Longitud: " + lon + "<br><br>" +
+            "<strong>UTM</strong><br>" +
+            "X (Est): " + utm[0].toFixed(2) + " m<br>" +
+            "Y (Nord): " + utm[1].toFixed(2) + " m";
+        },
+        function (error) {
+          document.getElementById("resultat").textContent =
+            "No s'ha pogut obtenir la posició.";
+        }
+      );
+    }
+  </script>
 
 </body>
 </html>
