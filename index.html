@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coordenades GPS</title>
+</head>
+<body>
+
+  <h1>La meva app UTM</h1>
+
+  <button onclick="obtenirPosicio()">Obtenir posició</button>
+
+  <p id="resultat">Encara no hi ha dades.</p>
+
+  <script>
+  function obtenirPosicio() {
+
+    if (!navigator.geolocation) {
+      document.getElementById("resultat").textContent =
+        "El teu dispositiu no suporta GPS.";
+      return;
+    }
+
+    document.getElementById("resultat").textContent =
+      "Obtenint posició...";
+
+    navigator.geolocation.getCurrentPosition(
+      function (posicio) {
+        const lat = posicio.coords.latitude;
+        const lon = posicio.coords.longitude;
+
+        document.getElementById("resultat").innerHTML =
+          "Latitud: " + lat + "<br>" +
+          "Longitud: " + lon;
+      },
+      function (error) {
+        document.getElementById("resultat").textContent =
+          "No s'ha pogut obtenir la posició.";
+      }
+    );
+  }
+</script>
+
+</body>
+</html>
