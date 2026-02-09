@@ -3,21 +3,55 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GPS OK</title>
+  <title>Coordenades UTM</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 </head>
 <body>
 
-<h1>GPS OK</h1>
-<button onclick="gps()">Obtenir posició</button>
-<p id="r">---</p>
+<h1>Coordenades UTM</h1>
+
+<button onclick="obtenirPosicio()">Obtenir posició</button>
+<button onclick="copiar()">Copiar UTM</button>
+
+<p id="resultat">Encara no hi ha dades.</p>
 
 <script>
-function gps(){
+let ultimaUTM = ""; // per copiar
+
+function obtenirPosicio() {
+  const r = document.getElementById("resultat");
+  r.textContent = "Obtenint posició...";
+
   navigator.geolocation.getCurrentPosition(
-    p => r.innerHTML = 
-      "LAT: " + p.coords.latitude + "<br>" +
-      "LON: " + p.coords.longitude,
-    e => r.innerHTML = "Error GPS: " + e.message
+    p => {
+      const lat = p.coords.latitude;
+      const lon = p.coords.longitude;
+
+      // calcular zona automàtica
+      const zona = Math.floor((lon + 180)/6) + 1;
+      const projUTM = `+proj=utm +zone=${zona} +datum=WGS84 +units=m +no_defs`;
+
+      const utm = proj4("EPSG:4326", projUTM, [lon, lat]);
+
+      ultimaUTM = `${utm[0].toFixed(2)}, ${utm[1].toFixed(2)}, zona ${zona}`;
+
+      r.innerHTML =
+        `Latitud: ${lat}<br>` +
+        `Longitud: ${lon}<br><br>` +
+        `<strong>UTM</strong><br>` +
+        `X (Est): ${utm[0].toFixed(2)} m<br>` +
+        `Y (Nord): ${utm[1].toFixed(2)} m<br>` +
+        `Zona: ${zona}`;
+    },
+    e => r.textContent = "Error GPS: " + e.message
+  );
+}
+
+function copiar() {
+  if (!ultimaUTM) return alert("Primer prem Obtenir posició");
+  navigator.clipboard.writeText(ultimaUTM).then(
+    () => alert("UTM copiat!"),
+    () => alert("No s'ha pogut copiar")
   );
 }
 </script>
