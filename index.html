@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Coordenades UTM</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+
+  <!-- Afegim defer perquè el codi s'executi després de carregar la llibreria -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 </head>
 <body>
 
@@ -26,6 +28,13 @@ function obtenirPosicio() {
     p => {
       const lat = p.coords.latitude;
       const lon = p.coords.longitude;
+
+      // si proj4 encara no està disponible, avisem
+      if (typeof proj4 === "undefined") {
+        r.textContent = "Esperant carregament de la llibreria UTM...";
+        setTimeout(obtenirPosicio, 500); // prova de nou en 0.5s
+        return;
+      }
 
       // calcular zona automàtica
       const zona = Math.floor((lon + 180)/6) + 1;
