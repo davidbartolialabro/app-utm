@@ -3,13 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Coordenades UTM</title>
-  <link rel="manifest" href="manifest.json">
+  <title>UTM App</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#2b7cff">
 
-  <!-- Afegim defer perquè el codi s'executi després de carregar la llibreria -->
+  <!-- Icona per iOS -->
+  <link rel="apple-touch-icon" href="./icon-192.png">
+
+  <!-- Llibreria UTM -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      text-align: center;
+    }
+    button {
+      display: block;
+      width: 100%;
+      margin: 10px 0;
+      padding: 15px;
+      font-size: 18px;
+    }
+    #resultat {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+  </style>
 </head>
+
 <body>
 
 <h1>Coordenades UTM</h1>
@@ -17,10 +42,10 @@
 <button onclick="obtenirPosicio()">Obtenir posició</button>
 <button onclick="copiar()">Copiar UTM</button>
 
-<p id="resultat">Encara no hi ha dades.</p>
+<p id="resultat">---</p>
 
 <script>
-let ultimaUTM = ""; // per copiar
+let ultimaUTM = "";
 
 function obtenirPosicio() {
   const r = document.getElementById("resultat");
@@ -31,15 +56,13 @@ function obtenirPosicio() {
       const lat = p.coords.latitude;
       const lon = p.coords.longitude;
 
-      // si proj4 encara no està disponible, avisem
       if (typeof proj4 === "undefined") {
-        r.textContent = "Esperant carregament de la llibreria UTM...";
-        setTimeout(obtenirPosicio, 500); // prova de nou en 0.5s
+        r.textContent = "Carregant llibreria...";
+        setTimeout(obtenirPosicio, 500);
         return;
       }
 
-      // calcular zona automàtica
-      const zona = Math.floor((lon + 180)/6) + 1;
+      const zona = Math.floor((lon + 180) / 6) + 1;
       const projUTM = `+proj=utm +zone=${zona} +datum=WGS84 +units=m +no_defs`;
 
       const utm = proj4("EPSG:4326", projUTM, [lon, lat]);
@@ -47,11 +70,11 @@ function obtenirPosicio() {
       ultimaUTM = `${utm[0].toFixed(2)}, ${utm[1].toFixed(2)}, zona ${zona}`;
 
       r.innerHTML =
-        `Latitud: ${lat}<br>` +
-        `Longitud: ${lon}<br><br>` +
+        `Lat: ${lat}<br>` +
+        `Lon: ${lon}<br><br>` +
         `<strong>UTM</strong><br>` +
-        `X (Est): ${utm[0].toFixed(2)} m<br>` +
-        `Y (Nord): ${utm[1].toFixed(2)} m<br>` +
+        `X: ${utm[0].toFixed(2)} m<br>` +
+        `Y: ${utm[1].toFixed(2)} m<br>` +
         `Zona: ${zona}`;
     },
     e => r.textContent = "Error GPS: " + e.message
@@ -59,10 +82,14 @@ function obtenirPosicio() {
 }
 
 function copiar() {
-  if (!ultimaUTM) return alert("Primer prem Obtenir posició");
+  if (!ultimaUTM) {
+    alert("Primer obtén la posició");
+    return;
+  }
+
   navigator.clipboard.writeText(ultimaUTM).then(
     () => alert("UTM copiat!"),
-    () => alert("No s'ha pogut copiar")
+    () => alert("Error en copiar")
   );
 }
 </script>
