@@ -46,7 +46,11 @@
 
 <script>
 let ultimaUTM = "";
-
+function obtenirBanda(lat) {
+  const bandes = "CDEFGHJKLMNPQRSTUVWX";
+  const index = Math.floor((lat + 80) / 8);
+  return bandes[index] || "";
+}
 function obtenirPosicio() {
   const r = document.getElementById("resultat");
   r.textContent = "Obtenint posició...";
@@ -63,11 +67,21 @@ function obtenirPosicio() {
       }
 
       const zona = Math.floor((lon + 180) / 6) + 1;
+      const banda = obtenirBanda(lat);
       const projUTM = `+proj=utm +zone=${zona} +datum=WGS84 +units=m +no_defs`;
 
       const utm = proj4("EPSG:4326", projUTM, [lon, lat]);
 
-      ultimaUTM = `${utm[0].toFixed(2)}, ${utm[1].toFixed(2)}, zona ${zona}`;
+      const x = utm[0].toFixed(3);
+const y = utm[1].toFixed(3);
+
+ultimaUTM = `${zona}${banda} ${x} ${y}`;
+
+document.getElementById("resultat").innerHTML =
+  `Lat: ${lat}<br>` +
+  `Lon: ${lon}<br><br>` +
+  `<strong>UTM</strong><br>` +
+  `${zona}${banda} ${x} ${y}`;
 
       r.innerHTML =
         `Lat: ${lat}<br>` +
