@@ -41,11 +41,14 @@
 
 <button onclick="obtenirPosicio()">Obtenir posició</button>
 <button onclick="copiar()">Copiar UTM</button>
+<button onclick="guardarActual()">Guardar punt</button>
 
 <p id="resultat">---</p>
+<div id="historial" style="margin-top:20px;"></div>
 
 <script>
 let ultimaUTM = "";
+let historial = JSON.parse(localStorage.getItem("historial")) || [];
 function obtenirBanda(lat) {
   const bandes = "CDEFGHJKLMNPQRSTUVWX";
   const index = Math.floor((lat + 80) / 8);
@@ -106,6 +109,30 @@ function copiar() {
     () => alert("Error en copiar")
   );
 }
+function guardarPunt(text) {
+  historial.push(text);
+  localStorage.setItem("historial", JSON.stringify(historial));
+  mostrarHistorial();
+}
+function mostrarHistorial() {
+  const r = document.getElementById("historial");
+
+  if (historial.length === 0) {
+    r.innerHTML = "Sense punts guardats.";
+    return;
+  }
+
+  r.innerHTML = "<strong>Historial:</strong><br>" +
+    historial.map((p, i) => `${i + 1}. ${p}`).join("<br>");
+}
+function guardarActual() {
+  if (!ultimaUTM) {
+    alert("Primer obtén la posició");
+    return;
+  }
+  guardarPunt(ultimaUTM);
+}
+mostrarHistorial();
 </script>
 
 </body>
