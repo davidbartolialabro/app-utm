@@ -41,7 +41,9 @@
 
 <button onclick="obtenirPosicio()">Obtenir posició</button>
 <button onclick="copiar()">Copiar UTM</button>
+<input id="nomPunt" placeholder="Nom del punt (opcional)" style="width:100%; padding:10px; margin-top:10px;">
 <button onclick="guardarActual()">Guardar punt</button>
+<button onclick="exportarCSV()">Exportar CSV</button>
 
 <p id="resultat">---</p>
 <div id="historial" style="margin-top:20px;"></div>
@@ -123,16 +125,50 @@ function mostrarHistorial() {
   }
 
   r.innerHTML = "<strong>Historial:</strong><br>" +
-    historial.map((p, i) => `${i + 1}. ${p}`).join("<br>");
+    historial.map((p, i) => `• ${i + 1}. ${p}`).join("<br>");
 }
 function guardarActual() {
   if (!ultimaUTM) {
     alert("Primer obtén la posició");
     return;
   }
-  guardarPunt(ultimaUTM);
+
+  const input = document.getElementById("nomPunt");
+  const nom = input.value.trim();
+
+  let textFinal = "";
+
+  if (nom) {
+    textFinal = nom + " → " + ultimaUTM;
+  } else {
+    textFinal = ultimaUTM;
+  }
+
+  guardarPunt(textFinal);
+
+  input.value = ""; // netejar camp després de guardar
 }
 mostrarHistorial();
+function exportarCSV() {
+  if (historial.length === 0) {
+    alert("No hi ha dades");
+    return;
+  }
+
+  let csv = "data:text/csv;charset=utf-8,";
+  csv += "Punt,Coordenades UTM\n";
+
+  historial.forEach((p, i) => {
+    csv += `${i + 1},"${p}"\n`;
+  });
+
+  const encodedUri = encodeURI(csv);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "historial_utm.csv");
+  document.body.appendChild(link);
+  link.click();
+}
 </script>
 
 </body>
