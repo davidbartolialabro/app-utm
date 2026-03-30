@@ -64,45 +64,31 @@ function obtenirPosicio() {
   r.textContent = "Obtenint posició...";
 
   navigator.geolocation.getCurrentPosition(
-    p => {
-      const lat = p.coords.latitude;
-      const lon = p.coords.longitude;
-      const precisio = pos.coords.accuracy.toFixed(1);
+  p => {
+    const lat = p.coords.latitude;
+    const lon = p.coords.longitude;
+    const precisio = p.coords.accuracy.toFixed(1);
 
-      if (typeof proj4 === "undefined") {
-        r.textContent = "Carregant llibreria...";
-        setTimeout(obtenirPosicio, 500);
-        return;
-      }
+    const zona = Math.floor((lon + 180) / 6) + 1;
+    const banda = obtenirBanda(lat);
 
-      const zona = Math.floor((lon + 180) / 6) + 1;
-      const banda = obtenirBanda(lat);
-      const projUTM = `+proj=utm +zone=${zona} +datum=WGS84 +units=m +no_defs`;
+    const projUTM = `+proj=utm +zone=${zona} +datum=WGS84 +units=m +no_defs`;
+    const utm = proj4("EPSG:4326", projUTM, [lon, lat]);
 
-      const utm = proj4("EPSG:4326", projUTM, [lon, lat]);
+    const x = utm[0].toFixed(3);
+    const y = utm[1].toFixed(3);
 
-      const x = utm[0].toFixed(3);
-const y = utm[1].toFixed(3);
+    ultimaUTM = `${zona}${banda} ${x} ${y}`;
 
-ultimaUTM = `${zona}${banda} ${x} ${y}`;
-
-document.getElementById("resultat").innerHTML =
-  `Lat: ${lat}<br>` +
-  `Lon: ${lon}<br><br>` +
-  `Precisió: ± ${precisio} m<br><br>` +
-  `<strong>UTM</strong><br>` +
-  `${zona}${banda} ${x} ${y}`;
-
-      r.innerHTML =
-        `Lat: ${lat}<br>` +
-        `Lon: ${lon}<br><br>` +
-        `<strong>UTM</strong><br>` +
-        `X: ${utm[0].toFixed(2)} m<br>` +
-        `Y: ${utm[1].toFixed(2)} m<br>` +
-        `Zona: ${zona}`;
-    },
-    e => r.textContent = "Error GPS: " + e.message
-  );
+    document.getElementById("resultat").innerHTML =
+      `Lat: ${lat}<br>` +
+      `Lon: ${lon}<br><br>` +
+      `Precisió: ± ${precisio} m<br><br>` +
+      `<strong>UTM</strong><br>` +
+      `${zona}${banda} ${x} ${y}`;
+  },
+  e => document.getElementById("resultat").textContent = "Error GPS: " + e.message
+);
 }
 
 function copiar() {
