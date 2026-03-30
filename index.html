@@ -63,7 +63,7 @@ function obtenirPosicio() {
   const r = document.getElementById("resultat");
   r.textContent = "Obtenint posició...";
 
-  navigator.geolocation.getCurrentPosition(
+  navigator.geolocation.watchPosition(
   p => {
     const lat = p.coords.latitude;
     const lon = p.coords.longitude;
@@ -87,7 +87,8 @@ function obtenirPosicio() {
       `<strong>UTM</strong><br>` +
       `${zona}${banda} ${x} ${y}`;
   },
-  e => document.getElementById("resultat").textContent = "Error GPS: " + e.message
+ , e => document.getElementById("resultat").textContent = "Error GPS: " + e.message,
+{ enableHighAccuracy: true, maximumAge: 0 }
 );
 }
 
