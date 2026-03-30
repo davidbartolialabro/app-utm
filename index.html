@@ -67,6 +67,7 @@ function obtenirPosicio() {
     p => {
       const lat = p.coords.latitude;
       const lon = p.coords.longitude;
+      const precisio = pos.coords.accuracy.toFixed(1);
 
       if (typeof proj4 === "undefined") {
         r.textContent = "Carregant llibreria...";
@@ -88,6 +89,7 @@ ultimaUTM = `${zona}${banda} ${x} ${y}`;
 document.getElementById("resultat").innerHTML =
   `Lat: ${lat}<br>` +
   `Lon: ${lon}<br><br>` +
+  `Precisió: ± ${precisio} m<br><br>` +
   `<strong>UTM</strong><br>` +
   `${zona}${banda} ${x} ${y}`;
 
