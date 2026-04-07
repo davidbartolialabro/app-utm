@@ -40,6 +40,7 @@
 <h1>Coordenades UTM</h1>
 
 <button onclick="obtenirPosicio()">Obtenir posició</button>
+<button onclick="fixarPosicio()">Fixar posició</button>
 <button onclick="copiar()">Copiar UTM</button>
 <input id="nomPunt" placeholder="Nom del punt (opcional)" style="width:100%; padding:10px; margin-top:10px;">
 <button onclick="guardarActual()">Guardar punt</button>
@@ -54,6 +55,9 @@
 <script>
 let ultimaUTM = "";
 let historial = JSON.parse(localStorage.getItem("historial")) || [];
+let watchId = null;
+let millorPosicio = null;
+let tempsInici = null;
 function obtenirBanda(lat) {
   const bandes = "CDEFGHJKLMNPQRSTUVWX";
   const index = Math.floor((lat + 80) / 8);
@@ -61,60 +65,70 @@ function obtenirBanda(lat) {
 }
 function obtenirPosicio() {
   const r = document.getElementById("resultat");
-  r.textContent = "Obtenint posició...";
+  r.textContent = "Buscant millor senyal GPS...";
 
-  navigator.geolocation.getCurrentPosition(
-    p => {
-      const lat = p.coords.latitude;
-      const lon = p.coords.longitude;
-      const precisio = p.coords.accuracy.toFixed(1);
+  millorPosicio = null;
+  tempsInici = Date.now();
 
-      const zona = Math.floor((lon + 180) / 6) + 1;
-      const banda = obtenirBanda(lat);
-
-      const projUTM = `+proj=utm +zone=${zona} +datum=WGS84 +units=m +no_defs`;
-      const utm = proj4("EPSG:4326", projUTM, [lon, lat]);
-
-      const x = utm[0].toFixed(3);
-      const y = utm[1].toFixed(3);
-
-      ultimaUTM = `${zona}${banda} ${x} ${y}`;
-
-      r.innerHTML =
-        `Lat: ${lat}<br>` +
-        `Lon: ${lon}<br><br>` +
-        `Precisió: ± ${precisio} m<br><br>` +
-        `<strong>UTM</strong><br>` +
-        `${zona}${banda} ${x} ${y}`;
-    },
-    e => {
-  let missatge = "";
-
-  switch (e.code) {
-    case e.PERMISSION_DENIED:
-      missatge = "❌ Has denegat el permís de GPS";
-      break;
-
-    case e.POSITION_UNAVAILABLE:
-      missatge = "❌ No es pot obtenir la posició";
-      break;
-
-    case e.TIMEOUT:
-      missatge = "⏳ Temps d'espera esgotat";
-      break;
-
-    default:
-      missatge = "❌ Error desconegut";
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
   }
 
-  r.textContent = missatge;
-},
+  watchId = navigator.geolocation.watchPosition(
+    p => {
+      const precisio = p.coords.accuracy;
+
+      // Guardem la millor
+      if (!millorPosicio || precisio < millorPosicio.coords.accuracy) {
+        millorPosicio = p;
+      }
+
+      // Mostrem estat
+      r.innerHTML =
+        `Buscant millor senyal...<br>` +
+        `Precisió actual: ± ${precisio.toFixed(1)} m<br>` +
+        `Millor: ± ${millorPosicio.coords.accuracy.toFixed(1)} m`;
+
+      // OPCIONAL: auto aturar si ja és bona
+      if (millorPosicio.coords.accuracy < 10) {
+        navigator.geolocation.clearWatch(watchId);
+        r.innerHTML += "<br><strong>✔️ Bona precisió!</strong>";
+      }
+
+    },
+    e => {
+      let missatge = "";
+
+      switch (e.code) {
+        case e.PERMISSION_DENIED:
+          missatge = "❌ Permís GPS denegat";
+          break;
+        case e.POSITION_UNAVAILABLE:
+          missatge = "❌ Posició no disponible";
+          break;
+        case e.TIMEOUT:
+          missatge = "⏳ Temps d'espera esgotat";
+          break;
+        default:
+          missatge = "❌ Error desconegut";
+      }
+
+      r.textContent = missatge;
+    },
     {
       enableHighAccuracy: true,
       maximumAge: 0,
-      timeout: 10000
+      timeout: 15000
     }
   );
+
+  // ⏱️ Stop automàtic després de 20s (seguretat)
+  setTimeout(() => {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      r.innerHTML += "<br><em>⏱️ Temps màxim assolit</em>";
+    }
+  }, 20000);
 }
 function copiar() {
   if (!ultimaUTM) {
@@ -126,6 +140,33 @@ function copiar() {
     () => alert("UTM copiat!"),
     () => alert("Error en copiar")
   );
+}
+function fixarPosicio() {
+  if (!millorPosicio) {
+    alert("Encara no hi ha cap posició");
+    return;
+  }
+
+  navigator.geolocation.clearWatch(watchId);
+
+  const lat = millorPosicio.coords.latitude;
+  const lon = millorPosicio.coords.longitude;
+
+  const zona = Math.floor((lon + 180) / 6) + 1;
+  const banda = obtenirBanda(lat);
+
+  const projUTM = `+proj=utm +zone=${zona} +datum=WGS84 +units=m +no_defs`;
+  const utm = proj4("EPSG:4326", projUTM, [lon, lat]);
+
+  const x = utm[0].toFixed(3);
+  const y = utm[1].toFixed(3);
+
+  ultimaUTM = `${zona}${banda} ${x} ${y}`;
+
+  document.getElementById("resultat").innerHTML =
+    `<strong>UTM (fixat)</strong><br>` +
+    ultimaUTM +
+    `<br>± ${millorPosicio.coords.accuracy.toFixed(1)} m`;
 }
 function guardarPunt(text) {
   historial.push(text);
