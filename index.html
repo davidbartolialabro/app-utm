@@ -87,7 +87,28 @@ function obtenirPosicio() {
         `<strong>UTM</strong><br>` +
         `${zona}${banda} ${x} ${y}`;
     },
-    e => r.textContent = "Error GPS: " + e.message,
+    e => {
+  let missatge = "";
+
+  switch (e.code) {
+    case e.PERMISSION_DENIED:
+      missatge = "❌ Has denegat el permís de GPS";
+      break;
+
+    case e.POSITION_UNAVAILABLE:
+      missatge = "❌ No es pot obtenir la posició";
+      break;
+
+    case e.TIMEOUT:
+      missatge = "⏳ Temps d'espera esgotat";
+      break;
+
+    default:
+      missatge = "❌ Error desconegut";
+  }
+
+  r.textContent = missatge;
+},
     {
       enableHighAccuracy: true,
       maximumAge: 0,
@@ -131,15 +152,16 @@ function guardarActual() {
   const input = document.getElementById("nomPunt");
   const nom = input.value.trim();
 
-  let textFinal = "";
+  const ara = new Date();
 
-  if (nom) {
-    textFinal = nom + " → " + ultimaUTM;
-  } else {
-    textFinal = ultimaUTM;
-  }
+  const punt = {
+    nom: nom || "Sense nom",
+    utm: ultimaUTM,
+    data: ara.toLocaleDateString(),
+    hora: ara.toLocaleTimeString()
+  };
 
-  guardarPunt(textFinal);
+  guardarPunt(punt);
 
   input.value = ""; // netejar camp després de guardar
 }
