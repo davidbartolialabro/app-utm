@@ -141,7 +141,10 @@ function mostrarHistorial() {
   }
 
   r.innerHTML = "<strong>Historial:</strong><br>" +
-    historial.map((p, i) => `• ${i + 1}. ${p}`).join("<br>");
+    historial.map((p, i) =>
+      `• ${i + 1}. ${p.nom} → ${p.utm}<br>
+       &nbsp;&nbsp;${p.data} ${p.hora}`
+    ).join("<br>");
 }
 function guardarActual() {
   if (!ultimaUTM) {
