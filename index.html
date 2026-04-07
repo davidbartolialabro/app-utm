@@ -63,35 +63,44 @@ function obtenirPosicio() {
   const r = document.getElementById("resultat");
   r.textContent = "Obtenint posició...";
 
-  navigator.geolocation.watchPosition(
-  p => {
-    const lat = p.coords.latitude;
-    const lon = p.coords.longitude;
-    const precisio = p.coords.accuracy.toFixed(1);
+  navigator.geolocation.getCurrentPosition(
+    p => {
+      const lat = p.coords.latitude;
+      const lon = p.coords.longitude;
+      const precisio = p.coords.accuracy.toFixed(1);
 
-    const zona = Math.floor((lon + 180) / 6) + 1;
-    const banda = obtenirBanda(lat);
+      if (typeof proj4 === "undefined") {
+        r.textContent = "Carregant llibreria...";
+        setTimeout(obtenirPosicio, 500);
+        return;
+      }
 
-    const projUTM = `+proj=utm +zone=${zona} +datum=WGS84 +units=m +no_defs`;
-    const utm = proj4("EPSG:4326", projUTM, [lon, lat]);
+      const zona = Math.floor((lon + 180) / 6) + 1;
+      const banda = obtenirBanda(lat);
 
-    const x = utm[0].toFixed(3);
-    const y = utm[1].toFixed(3);
+      const projUTM = `+proj=utm +zone=${zona} +datum=WGS84 +units=m +no_defs`;
+      const utm = proj4("EPSG:4326", projUTM, [lon, lat]);
 
-    ultimaUTM = `${zona}${banda} ${x} ${y}`;
+      const x = utm[0].toFixed(3);
+      const y = utm[1].toFixed(3);
 
-    document.getElementById("resultat").innerHTML =
-      `Lat: ${lat}<br>` +
-      `Lon: ${lon}<br><br>` +
-      `Precisió: ± ${precisio} m<br><br>` +
-      `<strong>UTM</strong><br>` +
-      `${zona}${banda} ${x} ${y}`;
-  },
- , e => document.getElementById("resultat").textContent = "Error GPS: " + e.message,
-{ enableHighAccuracy: true, maximumAge: 0 }
-);
+      ultimaUTM = `${zona}${banda} ${x} ${y}`;
+
+      r.innerHTML =
+        `Lat: ${lat}<br>` +
+        `Lon: ${lon}<br><br>` +
+        `Precisió: ± ${precisio} m<br><br>` +
+        `<strong>UTM</strong><br>` +
+        `${zona}${banda} ${x} ${y}`;
+    },
+    e => r.textContent = "Error GPS: " + e.message,
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000
+    }
+  );
 }
-
 function copiar() {
   if (!ultimaUTM) {
     alert("Primer obtén la posició");
