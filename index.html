@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="./icon-192.png">
 
   <!-- Llibreria UTM -->
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+  <script src="./proj4.js"></script>
 
   <style>
     body {
@@ -68,12 +68,6 @@ function obtenirPosicio() {
       const lat = p.coords.latitude;
       const lon = p.coords.longitude;
       const precisio = p.coords.accuracy.toFixed(1);
-
-      if (typeof proj4 === "undefined") {
-        r.textContent = "Carregant llibreria...";
-        setTimeout(obtenirPosicio, 500);
-        return;
-      }
 
       const zona = Math.floor((lon + 180) / 6) + 1;
       const banda = obtenirBanda(lat);
