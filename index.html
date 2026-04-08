@@ -183,9 +183,21 @@ function mostrarHistorial() {
 
   r.innerHTML = "<strong>Historial:</strong><br>" +
     historial.map((p, i) =>
-      `• ${i + 1}. ${p.nom} → ${p.utm}<br>
-       &nbsp;&nbsp;${p.data} ${p.hora}`
-    ).join("<br>");
+  `• ${i + 1}. ${p.nom} → ${p.utm}
+   <button onclick="eliminarPunt(${i})">❌</button><br>
+   &nbsp;&nbsp;${p.data} ${p.hora}`
+).join("<br>");
+}
+function eliminarPunt(index) {
+  const confirmar = confirm("Vols eliminar aquest punt?");
+
+  if (!confirmar) return;
+
+  historial.splice(index, 1);
+
+  localStorage.setItem("historial", JSON.stringify(historial));
+
+  mostrarHistorial();
 }
 function guardarActual() {
   if (!ultimaUTM) {
