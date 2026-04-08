@@ -90,10 +90,7 @@ function obtenirPosicio() {
         `Millor: ± ${millorPosicio.coords.accuracy.toFixed(1)} m`;
 
       // OPCIONAL: auto aturar si ja és bona
-      if (millorPosicio.coords.accuracy < 10) {
-        navigator.geolocation.clearWatch(watchId);
-        r.innerHTML += "<br><strong>✔️ Bona precisió!</strong>";
-      }
+      
 
     },
     e => {
@@ -122,13 +119,6 @@ function obtenirPosicio() {
     }
   );
 
-  // ⏱️ Stop automàtic després de 20s (seguretat)
-  setTimeout(() => {
-    if (watchId !== null) {
-      navigator.geolocation.clearWatch(watchId);
-      r.innerHTML += "<br><em>⏱️ Temps màxim assolit</em>";
-    }
-  }, 20000);
 }
 function copiar() {
   if (!ultimaUTM) {
