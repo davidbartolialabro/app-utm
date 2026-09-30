@@ -8,30 +8,52 @@
   <!-- PWA -->
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#2b7cff">
-
-  <!-- Icona per iOS -->
   <link rel="apple-touch-icon" href="./icon-192.png">
 
-  <!-- Llibreria UTM -->
+  <!-- Llibreria UTM (en local, per funcionar sense internet) -->
   <script src="./proj4.js"></script>
 
   <style>
     body {
       font-family: sans-serif;
-      padding: 20px;
+      padding: 12px;
+      margin: 0;
       text-align: center;
     }
-    button {
-      display: block;
-      width: 100%;
-      margin: 10px 0;
-      padding: 15px;
-      font-size: 18px;
-    }
+    h1 { font-size: 20px; margin: 4px 0 10px; }
+
+    /* Quadre de resultat, a dalt per veure'l sense baixar */
     #resultat {
-      margin-top: 20px;
-      font-size: 18px;
+      min-height: 90px;
+      margin: 0 0 10px;
+      padding: 10px;
+      font-size: 17px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
     }
+
+    /* Botons en dues columnes, meitat de grans que abans */
+    .fila {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    button {
+      width: 100%;
+      padding: 8px;
+      font-size: 15px;
+    }
+    .ample { margin-bottom: 8px; }
+    .perill { background: #ff4d4d; color: white; }
+    #nomPunt {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+    #historial { margin-top: 14px; text-align: left; font-size: 14px; }
   </style>
 </head>
 
@@ -39,77 +61,136 @@
 
 <h1>Coordenades UTM</h1>
 
-<button onclick="obtenirPosicio()">Obtenir posició</button>
-<button onclick="fixarPosicio()">Fixar posició</button>
-<button onclick="copiar()">Copiar UTM</button>
-<input id="nomPunt" placeholder="Nom del punt (opcional)" style="width:100%; padding:10px; margin-top:10px;">
-<button onclick="guardarActual()">Guardar punt</button>
-<button onclick="exportarCSV()">Exportar CSV</button>
-<button onclick="esborrarHistorial()" style="background:#ff4d4d; color:white;">
-  Esborrar historial
-</button>
-
 <p id="resultat">---</p>
-<div id="historial" style="margin-top:20px;"></div>
+
+<div class="fila">
+  <button onclick="obtenirPosicio()">Obtenir posició</button>
+  <button onclick="fixarPosicio()">Fixar posició</button>
+</div>
+
+<!-- Botó per triar el mètode: millor lectura o mitjana -->
+<button id="btnMetode" class="ample" onclick="canviarMetode()"></button>
+
+<input id="nomPunt" placeholder="Nom del punt (opcional)">
+
+<div class="fila">
+  <button onclick="copiar()">Copiar UTM</button>
+  <button onclick="guardarActual()">Guardar punt</button>
+</div>
+
+<div class="fila">
+  <button onclick="exportarCSV()">Exportar CSV</button>
+  <button class="perill" onclick="esborrarHistorial()">Esborrar historial</button>
+</div>
+
+<div id="historial"></div>
 
 <script>
+// ---------- AJUSTOS (els pots canviar aquí) ----------
+// Només les lectures amb aquesta precisió (en metres) o millor entren a la mitjana.
+const LLINDAR_MITJANA = 3;
+
+// ---------- VARIABLES ----------
 let ultimaUTM = "";
 let historial = JSON.parse(localStorage.getItem("historial")) || [];
-let watchId = null;
-let millorPosicio = null;
-let tempsInici = null;
+let watchId = null;            // identificador del seguiment GPS
+let millorPosicio = null;      // la lectura amb millor precisió
+let tempsMillora = null;       // moment en què la millor lectura va millorar per darrer cop
+let lecturesBones = [];        // lectures amb precisió <= LLINDAR_MITJANA (per a la mitjana)
+let precisioActual = null;     // precisió de l'última lectura rebuda
+let timerEstat = null;         // refresc cada segon del temps sense millorar
+let metode = localStorage.getItem("metode") || "millor"; // "millor" o "mitjana"
+
+// ---------- FUNCIONS AUXILIARES ----------
+
+// Lletra de la banda de latitud (C...X)
 function obtenirBanda(lat) {
   const bandes = "CDEFGHJKLMNPQRSTUVWX";
   const index = Math.floor((lat + 80) / 8);
   return bandes[index] || "";
 }
+
+// Evita que el nom escrit es interpreti com a codi HTML
+function escapa(text) {
+  return String(text).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// Text del botó de mètode
+function pintarMetode() {
+  document.getElementById("btnMetode").textContent =
+    metode === "millor"
+      ? "Mètode: Millor lectura"
+      : `Mètode: Mitjana (lectures ≤ ${LLINDAR_MITJANA} m)`;
+}
+
+function canviarMetode() {
+  metode = metode === "millor" ? "mitjana" : "millor";
+  localStorage.setItem("metode", metode);
+  pintarMetode();
+}
+
+// ---------- MOSTRAR L'ESTAT MENTRE BUSCA ----------
+function pintarEstat() {
+  if (precisioActual === null) return; // encara no hi ha cap lectura
+  const segons = Math.floor((Date.now() - tempsMillora) / 1000);
+
+  let text =
+    `Buscant millor senyal...<br>` +
+    `Precisió actual: ± ${precisioActual.toFixed(1)} m<br>` +
+    `Millor: ± ${millorPosicio.coords.accuracy.toFixed(1)} m<br>` +
+    `La millor lectura fa ${segons} s que no millora`;
+
+  if (metode === "mitjana") {
+    text += `<br>Lectures ≤ ${LLINDAR_MITJANA} m: ${lecturesBones.length}`;
+  }
+  document.getElementById("resultat").innerHTML = text;
+}
+
+function aturarCerca() {
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  clearInterval(timerEstat);
+}
+
+// ---------- OBTENIR POSICIÓ ----------
 function obtenirPosicio() {
   const r = document.getElementById("resultat");
   r.textContent = "Buscant millor senyal GPS...";
 
+  aturarCerca();
   millorPosicio = null;
-  tempsInici = Date.now();
-
-  if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
-  }
+  lecturesBones = [];
+  precisioActual = null;
+  tempsMillora = null;
 
   watchId = navigator.geolocation.watchPosition(
     p => {
-      const precisio = p.coords.accuracy;
+      precisioActual = p.coords.accuracy;
 
-      // Guardem la millor
-      if (!millorPosicio || precisio < millorPosicio.coords.accuracy) {
+      // Si és la millor fins ara, la guardem i reiniciem el comptador de temps
+      if (!millorPosicio || precisioActual < millorPosicio.coords.accuracy) {
         millorPosicio = p;
+        tempsMillora = Date.now();
       }
 
-      // Mostrem estat
-      r.innerHTML =
-        `Buscant millor senyal...<br>` +
-        `Precisió actual: ± ${precisio.toFixed(1)} m<br>` +
-        `Millor: ± ${millorPosicio.coords.accuracy.toFixed(1)} m`;
+      // Per a la mitjana: guardem totes les lectures prou bones
+      if (precisioActual <= LLINDAR_MITJANA) {
+        lecturesBones.push({ lat: p.coords.latitude, lon: p.coords.longitude });
+      }
 
-      // OPCIONAL: auto aturar si ja és bona
-      
-
+      pintarEstat();
     },
     e => {
       let missatge = "";
-
       switch (e.code) {
-        case e.PERMISSION_DENIED:
-          missatge = "❌ Permís GPS denegat";
-          break;
-        case e.POSITION_UNAVAILABLE:
-          missatge = "❌ Posició no disponible";
-          break;
-        case e.TIMEOUT:
-          missatge = "⏳ Temps d'espera esgotat";
-          break;
-        default:
-          missatge = "❌ Error desconegut";
+        case e.PERMISSION_DENIED:    missatge = "❌ Permís GPS denegat"; break;
+        case e.POSITION_UNAVAILABLE: missatge = "❌ Posició no disponible"; break;
+        case e.TIMEOUT:              missatge = "⏳ Temps d'espera esgotat"; break;
+        default:                     missatge = "❌ Error desconegut";
       }
-
       r.textContent = missatge;
     },
     {
@@ -119,28 +200,36 @@ function obtenirPosicio() {
     }
   );
 
+  // Refresca el text cada segon perquè el temps vagi pujant
+  timerEstat = setInterval(pintarEstat, 1000);
 }
-function copiar() {
-  if (!ultimaUTM) {
-    alert("Primer obtén la posició");
-    return;
-  }
 
-  navigator.clipboard.writeText(ultimaUTM).then(
-    () => alert("UTM copiat!"),
-    () => alert("Error en copiar")
-  );
-}
+// ---------- FIXAR POSICIÓ ----------
 function fixarPosicio() {
   if (!millorPosicio) {
     alert("Encara no hi ha cap posició");
     return;
   }
 
-  navigator.geolocation.clearWatch(watchId);
+  let lat, lon, detall;
 
-  const lat = millorPosicio.coords.latitude;
-  const lon = millorPosicio.coords.longitude;
+  if (metode === "mitjana") {
+    if (lecturesBones.length === 0) {
+      alert(`Encara no hi ha cap lectura de ± ${LLINDAR_MITJANA} m o millor`);
+      return;
+    }
+    // Mitjana simple de latitud i longitud de les lectures bones
+    const n = lecturesBones.length;
+    lat = lecturesBones.reduce((s, l) => s + l.lat, 0) / n;
+    lon = lecturesBones.reduce((s, l) => s + l.lon, 0) / n;
+    detall = `mitjana de ${n} lectures`;
+  } else {
+    lat = millorPosicio.coords.latitude;
+    lon = millorPosicio.coords.longitude;
+    detall = `millor lectura, ± ${millorPosicio.coords.accuracy.toFixed(1)} m`;
+  }
+
+  aturarCerca();
 
   const zona = Math.floor((lon + 180) / 6) + 1;
   const banda = obtenirBanda(lat);
@@ -148,21 +237,25 @@ function fixarPosicio() {
   const projUTM = `+proj=utm +zone=${zona} +datum=WGS84 +units=m +no_defs`;
   const utm = proj4("EPSG:4326", projUTM, [lon, lat]);
 
-  const x = utm[0].toFixed(3);
-  const y = utm[1].toFixed(3);
-
-  ultimaUTM = `${zona}${banda} ${x} ${y}`;
+  ultimaUTM = `${zona}${banda} ${utm[0].toFixed(3)} ${utm[1].toFixed(3)}`;
 
   document.getElementById("resultat").innerHTML =
-    `<strong>UTM (fixat)</strong><br>` +
-    ultimaUTM +
-    `<br>± ${millorPosicio.coords.accuracy.toFixed(1)} m`;
+    `<strong>UTM (fixat)</strong><br>${ultimaUTM}<br>${detall}`;
 }
-function guardarPunt(text) {
-  historial.push(text);
-  localStorage.setItem("historial", JSON.stringify(historial));
-  mostrarHistorial();
+
+// ---------- COPIAR ----------
+function copiar() {
+  if (!ultimaUTM) {
+    alert("Primer obtén la posició");
+    return;
+  }
+  navigator.clipboard.writeText(ultimaUTM).then(
+    () => alert("UTM copiat!"),
+    () => alert("Error en copiar")
+  );
 }
+
+// ---------- HISTORIAL ----------
 function mostrarHistorial() {
   const r = document.getElementById("historial");
 
@@ -173,22 +266,12 @@ function mostrarHistorial() {
 
   r.innerHTML = "<strong>Historial:</strong><br>" +
     historial.map((p, i) =>
-  `• ${i + 1}. ${p.nom} → ${p.utm}
-   <button onclick="eliminarPunt(${i})">❌</button><br>
-   &nbsp;&nbsp;${p.data} ${p.hora}`
-).join("<br>");
+      `• ${i + 1}. ${escapa(p.nom)} → ${escapa(p.utm)}
+       <button style="width:auto; padding:2px 8px;" onclick="eliminarPunt(${i})">❌</button><br>
+       &nbsp;&nbsp;${escapa(p.data)} ${escapa(p.hora)}`
+    ).join("<br>");
 }
-function eliminarPunt(index) {
-  const confirmar = confirm("Vols eliminar aquest punt?");
 
-  if (!confirmar) return;
-
-  historial.splice(index, 1);
-
-  localStorage.setItem("historial", JSON.stringify(historial));
-
-  mostrarHistorial();
-}
 function guardarActual() {
   if (!ultimaUTM) {
     alert("Primer obtén la posició");
@@ -196,52 +279,67 @@ function guardarActual() {
   }
 
   const input = document.getElementById("nomPunt");
-  const nom = input.value.trim();
-
   const ara = new Date();
 
-  const punt = {
-    nom: nom || "Sense nom",
+  historial.push({
+    nom: input.value.trim() || "Sense nom",
     utm: ultimaUTM,
     data: ara.toLocaleDateString(),
     hora: ara.toLocaleTimeString()
-  };
+  });
 
-  guardarPunt(punt);
-
-  input.value = ""; // netejar camp després de guardar
+  localStorage.setItem("historial", JSON.stringify(historial));
+  mostrarHistorial();
+  input.value = ""; // netejar el camp després de guardar
 }
-mostrarHistorial();
+
+function eliminarPunt(index) {
+  if (!confirm("Vols eliminar aquest punt?")) return;
+  historial.splice(index, 1);
+  localStorage.setItem("historial", JSON.stringify(historial));
+  mostrarHistorial();
+}
+
+function esborrarHistorial() {
+  if (!confirm("Segur que vols esborrar tot l'historial?")) return;
+  historial = [];
+  localStorage.removeItem("historial");
+  mostrarHistorial();
+}
+
+// ---------- EXPORTAR CSV ----------
+// Columnes: Punt; Nom; Zona; X; Y; Data; Hora  (separades per ";" perquè
+// Excel en català/castellà les obri bé en columnes)
 function exportarCSV() {
   if (historial.length === 0) {
     alert("No hi ha dades");
     return;
   }
 
-  let csv = "data:text/csv;charset=utf-8,";
-  csv += "Punt,Coordenades UTM\n";
+  let csv = "Punt;Nom;Zona;X;Y;Data;Hora\n";
 
   historial.forEach((p, i) => {
-    csv += `${i + 1},"${p}"\n`;
+    // p.utm té el format "31T 123456.789 4567890.123"
+    const [zona, x, y] = p.utm.split(" ");
+    const nom = p.nom.replace(/"/g, '""'); // protegeix les cometes
+    csv += `${i + 1};"${nom}";${zona};${x};${y};${p.data};${p.hora}\n`;
   });
 
-  const encodedUri = encodeURI(csv);
+  // "\uFEFF" fa que Excel llegeixi bé els accents
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
   const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", "historial_utm.csv");
+  link.href = URL.createObjectURL(blob);
+  link.download = "historial_utm.csv";
   document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
 }
-function esborrarHistorial() {
-  const confirmar = confirm("Segur que vols esborrar tot l'historial?");
 
-  if (!confirmar) return;
+// ---------- ARRANCADA ----------
+pintarMetode();
+mostrarHistorial();
 
-  historial = [];
-  localStorage.removeItem("historial");
-
-  mostrarHistorial();
-}
+// Registra el service worker (perquè funcioni sense internet)
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./service-worker.js")
     .then(() => console.log("SW OK"))
